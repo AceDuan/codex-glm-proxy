@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codex-glm-proxy"
+version = "0.1.0"
+description = "将 Codex Responses API 转换为智谱 Anthropic Messages API"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[project.scripts]
+codex-glm-proxy = "codex_glm_proxy.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
