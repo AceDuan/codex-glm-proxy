@@ -11,7 +11,8 @@ from codex_glm_proxy.server import create_server
 ANTHROPIC_STREAM = (
     'event: message_start\n'
     'data: {"type":"message_start","message":{"id":"msg_test","model":"glm-5.2",'
-    '"usage":{"input_tokens":4,"output_tokens":0}}}\n\n'
+    '"usage":{"input_tokens":4,"output_tokens":0,"cache_read_input_tokens":6,'
+    '"cache_creation_input_tokens":3}}}\n\n'
     'event: content_block_start\n'
     'data: {"type":"content_block_start","index":0,'
     '"content_block":{"type":"text","text":""}}\n\n'
@@ -120,6 +121,23 @@ class ServerTests(unittest.TestCase):
         self.assertIn("event: response.created", result)
         self.assertIn("event: response.output_text.delta", result)
         self.assertIn("event: response.completed", result)
+        completed_line = next(
+            line
+            for line in result.splitlines()
+            if line.startswith("data:")
+            and '"type":"response.completed"' in line
+        )
+        completed = json.loads(completed_line.removeprefix("data:").strip())
+        self.assertEqual(
+            completed["response"]["usage"],
+            {
+                "input_tokens": 13,
+                "input_tokens_details": {"cached_tokens": 6},
+                "output_tokens": 2,
+                "output_tokens_details": {"reasoning_tokens": 0},
+                "total_tokens": 15,
+            },
+        )
         self.assertEqual(
             FakeAnthropicHandler.request_headers["X-Api-Key"],
             "secret-key",

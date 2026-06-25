@@ -17,6 +17,98 @@ def parse_output(chunks):
 
 
 class ResponseTransformTests(unittest.TestCase):
+    def test_usage_updates_preserve_missing_fields_and_accept_zero(self):
+        source = [
+            event(
+                "message_start",
+                {
+                    "type": "message_start",
+                    "message": {
+                        "id": "msg_usage_updates",
+                        "type": "message",
+                        "role": "assistant",
+                        "model": "glm-5.2",
+                        "usage": {
+                            "input_tokens": 10,
+                            "cache_read_input_tokens": 5,
+                            "cache_creation_input_tokens": 7,
+                        },
+                    },
+                },
+            ),
+            event(
+                "message_delta",
+                {
+                    "type": "message_delta",
+                    "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                    "usage": {
+                        "output_tokens": 3,
+                        "cache_creation_input_tokens": 0,
+                    },
+                },
+            ),
+            event("message_stop", {"type": "message_stop"}),
+        ]
+
+        output = parse_output(transform_anthropic_sse(source))
+        completed = output[-1][1]["response"]
+
+        self.assertEqual(
+            completed["usage"],
+            {
+                "input_tokens": 15,
+                "input_tokens_details": {"cached_tokens": 5},
+                "output_tokens": 3,
+                "output_tokens_details": {"reasoning_tokens": 0},
+                "total_tokens": 18,
+            },
+        )
+
+    def test_includes_cache_tokens_in_input_and_total_usage(self):
+        source = [
+            event(
+                "message_start",
+                {
+                    "type": "message_start",
+                    "message": {
+                        "id": "msg_cache",
+                        "type": "message",
+                        "role": "assistant",
+                        "model": "glm-5.2",
+                        "usage": {
+                            "input_tokens": 9,
+                            "output_tokens": 0,
+                            "cache_read_input_tokens": 100,
+                            "cache_creation_input_tokens": 20,
+                        },
+                    },
+                },
+            ),
+            event(
+                "message_delta",
+                {
+                    "type": "message_delta",
+                    "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                    "usage": {"output_tokens": 2},
+                },
+            ),
+            event("message_stop", {"type": "message_stop"}),
+        ]
+
+        output = parse_output(transform_anthropic_sse(source))
+        completed = output[-1][1]["response"]
+
+        self.assertEqual(
+            completed["usage"],
+            {
+                "input_tokens": 129,
+                "input_tokens_details": {"cached_tokens": 100},
+                "output_tokens": 2,
+                "output_tokens_details": {"reasoning_tokens": 0},
+                "total_tokens": 131,
+            },
+        )
+
     def test_transforms_text_stream_and_usage(self):
         source = [
             event(
@@ -95,11 +187,11 @@ class ResponseTransformTests(unittest.TestCase):
         self.assertEqual(
             completed["usage"],
             {
-                "input_tokens": 12,
+                "input_tokens": 15,
                 "input_tokens_details": {"cached_tokens": 3},
                 "output_tokens": 2,
                 "output_tokens_details": {"reasoning_tokens": 0},
-                "total_tokens": 14,
+                "total_tokens": 17,
             },
         )
 

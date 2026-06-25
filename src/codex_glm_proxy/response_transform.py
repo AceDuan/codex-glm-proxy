@@ -55,9 +55,32 @@ class _ResponsesState:
         self.created_at = int(time.time())
         self.input_tokens = 0
         self.output_tokens = 0
-        self.cached_tokens = 0
+        self.cache_read_input_tokens = 0
+        self.cache_creation_input_tokens = 0
         self.blocks: dict[int, JsonObject] = {}
         self.output: list[JsonObject] = []
+
+    def update_usage(self, usage: JsonObject) -> None:
+        for key in (
+            "input_tokens",
+            "output_tokens",
+            "cache_read_input_tokens",
+            "cache_creation_input_tokens",
+        ):
+            if key in usage:
+                setattr(self, key, int(usage[key] or 0))
+
+    def final_usage(self) -> JsonObject:
+        input_tokens = (
+            self.input_tokens
+            + self.cache_read_input_tokens
+            + self.cache_creation_input_tokens
+        )
+        return _usage(
+            input_tokens,
+            self.output_tokens,
+            self.cache_read_input_tokens,
+        )
 
     def emit(self, event_type: str, **payload: Any) -> str:
         event = {
@@ -101,8 +124,7 @@ def transform_anthropic_sse(chunks: Iterable[str | bytes]) -> Iterator[str]:
             state.response_id = str(message.get("id") or f"resp_{int(time.time() * 1000)}")
             state.model = str(message.get("model") or "")
             usage = message.get("usage") or {}
-            state.input_tokens = int(usage.get("input_tokens") or 0)
-            state.cached_tokens = int(usage.get("cache_read_input_tokens") or 0)
+            state.update_usage(usage)
             yield state.emit(
                 "response.created",
                 response=state.response("in_progress", None),
@@ -246,24 +268,11 @@ def transform_anthropic_sse(chunks: Iterable[str | bytes]) -> Iterator[str]:
 
         if event_name == "message_delta":
             usage = data.get("usage") or {}
-            state.input_tokens = int(
-                usage.get("input_tokens") or state.input_tokens
-            )
-            state.output_tokens = int(
-                usage.get("output_tokens") or state.output_tokens
-            )
-            state.cached_tokens = int(
-                usage.get("cache_read_input_tokens") or state.cached_tokens
-            )
+            state.update_usage(usage)
             continue
 
         if event_name == "message_stop":
-            final_usage = _usage(
-                state.input_tokens,
-                state.output_tokens,
-                state.cached_tokens,
-            )
             yield state.emit(
                 "response.completed",
-                response=state.response("completed", final_usage),
+                response=state.response("completed", state.final_usage()),
             )
