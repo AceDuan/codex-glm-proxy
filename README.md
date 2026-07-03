@@ -20,11 +20,10 @@ Codex CLI
 
 ## 安装
 
-本项目的 Python 操作统一通过 `misc-run` 执行：
+本项目的 Python 操作统一通过 `uv` 执行。在项目根目录下：
 
 ```bash
-misc-run codex-glm-proxy -- \
-  python -m pip install --no-build-isolation -e .
+uv sync
 ```
 
 ## 启动
@@ -32,15 +31,14 @@ misc-run codex-glm-proxy -- \
 后台启动（推荐）：
 
 ```bash
-misc-run codex-glm-proxy -- \
-  codex-glm-proxy start
+uv run codex-glm-proxy start
 ```
 
 状态和停止：
 
 ```bash
-misc-run codex-glm-proxy -- codex-glm-proxy status
-misc-run codex-glm-proxy -- codex-glm-proxy stop
+uv run codex-glm-proxy status
+uv run codex-glm-proxy stop
 ```
 
 PID 和日志默认保存到：
@@ -53,8 +51,7 @@ PID 和日志默认保存到：
 前台启动：
 
 ```bash
-misc-run codex-glm-proxy -- \
-  codex-glm-proxy serve
+uv run codex-glm-proxy serve
 ```
 
 默认监听：
@@ -66,8 +63,7 @@ http://127.0.0.1:8765
 健康检查：
 
 ```bash
-misc-run codex-glm-proxy -- \
-  codex-glm-proxy health
+uv run codex-glm-proxy health
 ```
 
 ## Codex 配置
@@ -92,8 +88,7 @@ env_key = "ZHIPU_API_KEY"
 ## 测试
 
 ```bash
-misc-run codex-glm-proxy -- \
-  env PYTHONPATH=src python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v
 ```
 
 ## 参考
