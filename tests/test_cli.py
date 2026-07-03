@@ -4,6 +4,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+
+from codex_glm_proxy import cli
 
 
 def free_port():
@@ -13,6 +16,42 @@ def free_port():
 
 
 class CliLifecycleTests(unittest.TestCase):
+    def test_detach_kwargs_on_posix(self):
+        with mock.patch.object(cli.sys, "platform", "linux"):
+            self.assertEqual(cli._detach_kwargs(), {"start_new_session": True})
+
+    def test_terminate_pid_on_posix(self):
+        with (
+            mock.patch.object(cli.sys, "platform", "linux"),
+            mock.patch.object(cli.os, "kill") as kill,
+        ):
+            cli._terminate_pid(123)
+        kill.assert_called_once_with(123, cli.signal.SIGTERM)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows-specific Popen flags")
+    def test_detach_kwargs_on_windows(self):
+        self.assertEqual(
+            cli._detach_kwargs(),
+            {
+                "creationflags": (
+                    subprocess.CREATE_NO_WINDOW
+                    | subprocess.CREATE_NEW_PROCESS_GROUP
+                )
+            },
+        )
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows-specific taskkill")
+    def test_terminate_pid_on_windows(self):
+        with mock.patch.object(cli.subprocess, "run") as run:
+            cli._terminate_pid(123)
+        run.assert_called_once_with(
+            ["taskkill", "/PID", "123", "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+
     def test_start_status_and_stop(self):
         port = free_port()
         with tempfile.TemporaryDirectory() as runtime_dir:

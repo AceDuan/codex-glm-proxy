@@ -12,6 +12,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from .server import DEFAULT_UPSTREAM_URL, create_server
 
@@ -66,6 +67,31 @@ def _runtime_paths(raw: str) -> tuple[Path, Path, Path]:
     return runtime_dir, runtime_dir / "proxy.pid", runtime_dir / "proxy.log"
 
 
+def _detach_kwargs() -> dict[str, Any]:
+    """Return platform-specific options for a detached background process."""
+    if sys.platform == "win32":
+        return {
+            "creationflags": (
+                subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+        }
+    return {"start_new_session": True}
+
+
+def _terminate_pid(pid: int) -> None:
+    """Terminate a background process, including its process tree on Windows."""
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        return
+    os.kill(pid, signal.SIGTERM)
+
+
 def _start(args: argparse.Namespace) -> int:
     health_url = f"http://{args.host}:{args.port}/healthz"
     if _health(health_url):
@@ -92,8 +118,8 @@ def _start(args: argparse.Namespace) -> int:
             stdin=subprocess.DEVNULL,
             stdout=log,
             stderr=subprocess.STDOUT,
-            start_new_session=True,
             close_fds=True,
+            **_detach_kwargs(),
         )
     pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
 
@@ -137,7 +163,7 @@ def _stop(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        os.kill(pid, signal.SIGTERM)
+        _terminate_pid(pid)
     except ProcessLookupError:
         pass
     except PermissionError as exc:

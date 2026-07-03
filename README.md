@@ -2,6 +2,11 @@
 
 将 Codex CLI 使用的 OpenAI Responses API 转换为智谱 Anthropic Messages API。
 
+支持 Linux、WSL 和 Windows。后台进程管理会自动按运行平台选择实现：
+
+- Linux/WSL 使用独立会话，并通过 `SIGTERM` 停止进程。
+- Windows 使用无窗口的新进程组，并通过 `taskkill` 停止进程树。
+
 ```text
 Codex CLI
   → http://127.0.0.1:8765/v1/responses
@@ -64,6 +69,12 @@ http://127.0.0.1:8765
 
 ```bash
 uv run codex-glm-proxy health
+```
+
+Windows 也可使用项目根目录的包装器。它会从 `UV_EXE`、`PATH` 或常见的用户级安装目录查找 `uv`：
+
+```bat
+codex-glm-proxy.cmd start
 ```
 
 ## Codex 配置

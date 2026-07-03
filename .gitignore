@@ -5,5 +5,6 @@ __pycache__/
 .coverage
 build/
 dist/
-docs/superpowers/
+docs/
 .worktrees/
+.venv/
