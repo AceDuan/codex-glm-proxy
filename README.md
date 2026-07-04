@@ -121,11 +121,14 @@ WSL 需要安装 `jq`，然后在 shell 配置中加载脚本：
 source /path/to/codex-glm-proxy/scripts/codex.sh
 ```
 
-Windows 将 `scripts` 目录加入 `PATH` 后，可直接执行 `axg`、`axgs` 和 `axgf`。仓库内脚本默认使用当前项目作为代理目录；如果把脚本复制到其他目录，需要设置 `CODEX_GLM_PROXY_DIR`：
+Windows 将 `scripts` 目录加入 `PATH` 后，可直接执行 `axg`、`axgs` 和 `axgf`。首次使用时复制环境配置示例并填写项目的绝对路径：
 
 ```powershell
-$env:CODEX_GLM_PROXY_DIR = "D:\path\to\codex-glm-proxy"
+Copy-Item scripts\.env.example scripts\.env
+# 编辑 scripts\.env 中的 CODEX_GLM_PROXY_DIR
 ```
+
+`scripts/.env` 是本机配置且不会提交；也可以直接设置同名环境变量覆盖该文件中的值。
 
 ## 测试
 

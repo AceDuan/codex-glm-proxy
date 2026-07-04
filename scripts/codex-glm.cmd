@@ -3,7 +3,13 @@ setlocal DisableDelayedExpansion
 
 set "CODEX_HOME=%USERPROFILE%\.codex-glm"
 set "CODEX_GLM_KEY_FILE=%CODEX_HOME%\glm-api-key.json"
-if not defined CODEX_GLM_PROXY_DIR for %%I in ("%~dp0..") do set "CODEX_GLM_PROXY_DIR=%%~fI"
+set "CODEX_GLM_ENV_FILE=%~dp0.env"
+if not defined CODEX_GLM_PROXY_DIR if exist "%CODEX_GLM_ENV_FILE%" for /f "usebackq tokens=1,* delims== eol=#" %%A in ("%CODEX_GLM_ENV_FILE%") do if /i "%%A"=="CODEX_GLM_PROXY_DIR" set "CODEX_GLM_PROXY_DIR=%%B"
+if not defined CODEX_GLM_PROXY_DIR (
+    echo [ERROR] CODEX_GLM_PROXY_DIR is not configured. 1>&2
+    echo [ERROR] Copy "%~dp0.env.example" to "%CODEX_GLM_ENV_FILE%" and set the project path. 1>&2
+    exit /b 1
+)
 
 if not exist "%CODEX_GLM_KEY_FILE%" (
     echo [ERROR] Zhipu API key file not found: %CODEX_GLM_KEY_FILE% 1>&2
