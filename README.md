@@ -96,6 +96,37 @@ env_key = "ZHIPU_API_KEY"
 
 代理从 Codex 请求的 Bearer 认证头中取得 API Key，只在当前上游请求中转发给智谱，不写入日志或文件。
 
+## 公共脚本
+
+[`scripts`](scripts/) 提供 Windows 和 WSL 使用的 Codex 快捷命令。GLM 命令会自动启动代理，从 `~/.codex-glm/glm-api-key.json` 读取密钥，并将 `CODEX_HOME` 设置为 `~/.codex-glm`。
+
+```json
+{
+  "ZHIPU_API_KEY": "你的智谱 API Key"
+}
+```
+
+| 命令 | 模型 | 权限 | 搜索 |
+| --- | --- | --- | --- |
+| `ax` | 默认 Codex | `workspace-write` / `on-request` | 否 |
+| `axs` | 默认 Codex | `workspace-write` / `on-request` | 是 |
+| `axf` | 默认 Codex | `danger-full-access` / `never` | 否 |
+| `axg` | GLM | `workspace-write` / `on-request` | 否 |
+| `axgs` | GLM | `workspace-write` / `on-request` | 是 |
+| `axgf` | GLM | `danger-full-access` / `never` | 否 |
+
+WSL 需要安装 `jq`，然后在 shell 配置中加载脚本：
+
+```bash
+source /path/to/codex-glm-proxy/scripts/codex.sh
+```
+
+Windows 将 `scripts` 目录加入 `PATH` 后，可直接执行 `axg`、`axgs` 和 `axgf`。仓库内脚本默认使用当前项目作为代理目录；如果把脚本复制到其他目录，需要设置 `CODEX_GLM_PROXY_DIR`：
+
+```powershell
+$env:CODEX_GLM_PROXY_DIR = "D:\path\to\codex-glm-proxy"
+```
+
 ## 测试
 
 ```bash
