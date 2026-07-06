@@ -33,6 +33,10 @@ class FakeAnthropicHandler(BaseHTTPRequestHandler):
     request_body = None
     request_headers = None
     response_status = 200
+    response_error_body = (
+        b'{"type":"error","error":{"type":"authentication_error",'
+        b'"message":"invalid key"}}'
+    )
 
     def do_POST(self):
         length = int(self.headers.get("content-length", "0"))
@@ -46,10 +50,7 @@ class FakeAnthropicHandler(BaseHTTPRequestHandler):
         else:
             self.send_header("content-type", "application/json")
             self.end_headers()
-            self.wfile.write(
-                b'{"type":"error","error":{"type":"authentication_error",'
-                b'"message":"invalid key"}}'
-            )
+            self.wfile.write(type(self).response_error_body)
 
     def log_message(self, format, *args):
         return
@@ -64,6 +65,10 @@ def start(server):
 class ServerTests(unittest.TestCase):
     def setUp(self):
         FakeAnthropicHandler.response_status = 200
+        FakeAnthropicHandler.response_error_body = (
+            b'{"type":"error","error":{"type":"authentication_error",'
+            b'"message":"invalid key"}}'
+        )
         FakeAnthropicHandler.request_body = None
         FakeAnthropicHandler.request_headers = None
         self.upstream = ThreadingHTTPServer(("127.0.0.1", 0), FakeAnthropicHandler)
@@ -172,6 +177,55 @@ class ServerTests(unittest.TestCase):
         error = json.loads(context.exception.read())
         self.assertEqual(error["error"]["type"], "authentication_error")
         self.assertEqual(error["error"]["message"], "invalid key")
+
+    def test_maps_periodic_quota_exhaustion_to_visible_error(self):
+        FakeAnthropicHandler.response_status = 429
+        FakeAnthropicHandler.response_error_body = (
+            b'{"error":{"type":"rate_limit_error","message":'
+            b'"[1310][quota exhausted; reset later]"}}'
+        )
+        request = urllib.request.Request(
+            f"{self.base_url}/v1/responses",
+            data=json.dumps(
+                {"model": "glm-5.2", "input": [], "stream": True}
+            ).encode(),
+            headers={
+                "content-type": "application/json",
+                "authorization": "Bearer valid-key",
+            },
+            method="POST",
+        )
+
+        with self.assertRaises(urllib.error.HTTPError) as context:
+            urllib.request.urlopen(request)
+
+        self.assertEqual(context.exception.code, 403)
+        error = json.loads(context.exception.read())
+        self.assertEqual(error["error"]["type"], "rate_limit_error")
+        self.assertEqual(error["error"]["code"], "1310")
+        self.assertIn("quota exhausted", error["error"]["message"])
+
+    def test_preserves_transient_rate_limit_status(self):
+        FakeAnthropicHandler.response_status = 429
+        FakeAnthropicHandler.response_error_body = (
+            b'{"error":{"type":"rate_limit_error","message":"slow down"}}'
+        )
+        request = urllib.request.Request(
+            f"{self.base_url}/v1/responses",
+            data=json.dumps(
+                {"model": "glm-5.2", "input": [], "stream": True}
+            ).encode(),
+            headers={
+                "content-type": "application/json",
+                "authorization": "Bearer valid-key",
+            },
+            method="POST",
+        )
+
+        with self.assertRaises(urllib.error.HTTPError) as context:
+            urllib.request.urlopen(request)
+
+        self.assertEqual(context.exception.code, 429)
 
 
 if __name__ == "__main__":

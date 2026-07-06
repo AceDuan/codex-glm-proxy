@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,6 +14,7 @@ from .response_transform import transform_anthropic_sse
 
 
 DEFAULT_UPSTREAM_URL = "https://open.bigmodel.cn/api/anthropic/v1/messages"
+QUOTA_EXHAUSTED_CODE = "1310"
 
 
 def _json_bytes(value: Any) -> bytes:
@@ -36,17 +38,45 @@ def _map_upstream_error(raw: bytes, status: int) -> dict[str, Any]:
     if isinstance(upstream_error, dict):
         message = upstream_error.get("message") or f"上游请求失败：HTTP {status}"
         error_type = upstream_error.get("type") or "upstream_error"
+        error_code = upstream_error.get("code")
     else:
         message = str(upstream_error or parsed.get("message") or f"上游请求失败：HTTP {status}")
         error_type = "upstream_error"
+        error_code = parsed.get("code") if isinstance(parsed, dict) else None
+
+    if error_code is None:
+        code_match = re.match(r"^\[(\d+)\]", str(message))
+        if code_match:
+            error_code = code_match.group(1)
+
     return {
         "error": {
             "message": message,
             "type": error_type,
             "param": None,
-            "code": None,
+            "code": error_code,
         }
     }
+
+
+def _downstream_error_status(upstream_status: int, error: dict[str, Any]) -> int:
+    """Use a status for periodic quota errors that keeps details visible in Codex."""
+
+    details = error.get("error")
+    if not isinstance(details, dict):
+        return upstream_status
+
+    code = str(details.get("code") or "")
+    message = str(details.get("message") or "")
+    quota_exhausted = code == QUOTA_EXHAUSTED_CODE or (
+        "达到每周/每月使用上限" in message and "重置" in message
+    )
+    if upstream_status == 429 and quota_exhausted:
+        # Codex reports only the final HTTP status after exhausting a 429 retry,
+        # hiding the useful upstream message. With 403 it includes the response
+        # body in progress and final errors, including the quota reset time.
+        return 403
+    return upstream_status
 
 
 def _handler(upstream_url: str) -> type[BaseHTTPRequestHandler]:
@@ -138,7 +168,8 @@ def _handler(upstream_url: str) -> type[BaseHTTPRequestHandler]:
             try:
                 upstream = urllib.request.urlopen(upstream_request, timeout=600)
             except urllib.error.HTTPError as exc:
-                self._write_json(exc.code, _map_upstream_error(exc.read(), exc.code))
+                error = _map_upstream_error(exc.read(), exc.code)
+                self._write_json(_downstream_error_status(exc.code, error), error)
                 return
             except urllib.error.URLError as exc:
                 self._write_json(

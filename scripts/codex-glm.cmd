@@ -4,6 +4,8 @@ setlocal DisableDelayedExpansion
 set "CODEX_HOME=%USERPROFILE%\.codex-glm"
 set "CODEX_GLM_KEY_FILE=%CODEX_HOME%\glm-api-key.json"
 set "CODEX_GLM_ENV_FILE=%~dp0.env"
+set "CODEX_GLM_PROXY_PORT=8766"
+set "CODEX_GLM_PROXY_RUNTIME=%CODEX_HOME%\proxy-8766"
 if not defined CODEX_GLM_PROXY_DIR if exist "%CODEX_GLM_ENV_FILE%" for /f "usebackq tokens=1,* delims== eol=#" %%A in ("%CODEX_GLM_ENV_FILE%") do if /i "%%A"=="CODEX_GLM_PROXY_DIR" set "CODEX_GLM_PROXY_DIR=%%B"
 if not defined CODEX_GLM_PROXY_DIR (
     echo [ERROR] CODEX_GLM_PROXY_DIR is not configured. 1>&2
@@ -28,11 +30,11 @@ if not exist "%CODEX_GLM_PROXY_DIR%\codex-glm-proxy.cmd" (
     exit /b 1
 )
 
-call "%CODEX_GLM_PROXY_DIR%\codex-glm-proxy.cmd" start
+call "%CODEX_GLM_PROXY_DIR%\codex-glm-proxy.cmd" start --port %CODEX_GLM_PROXY_PORT% --runtime-dir "%CODEX_GLM_PROXY_RUNTIME%"
 if errorlevel 1 (
     echo [ERROR] Codex GLM proxy failed to start. Check: %CODEX_HOME%\proxy\proxy.log 1>&2
     exit /b 1
 )
 
-call codex -c model_providers.custom.base_url=\"http://127.0.0.1:8765/v1\" %*
+call codex -c model_providers.custom.base_url=\"http://127.0.0.1:%CODEX_GLM_PROXY_PORT%/v1\" %*
 exit /b %errorlevel%
