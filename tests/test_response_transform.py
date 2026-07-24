@@ -279,6 +279,69 @@ class ResponseTransformTests(unittest.TestCase):
             },
         )
 
+    def test_splits_flattened_mcp_tool_name_into_namespace(self):
+        source = [
+            event(
+                "message_start",
+                {
+                    "type": "message_start",
+                    "message": {
+                        "id": "msg_mcp",
+                        "model": "glm-5.2",
+                        "usage": {"input_tokens": 1, "output_tokens": 0},
+                    },
+                },
+            ),
+            event(
+                "content_block_start",
+                {
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {
+                        "type": "tool_use",
+                        "id": "tool_mcp",
+                        "name": "mcp__zhipu_web_search__web_search_prime",
+                        "input": {},
+                    },
+                },
+            ),
+            event(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {
+                        "type": "input_json_delta",
+                        "partial_json": '{"search_query":"智谱 AI"}',
+                    },
+                },
+            ),
+            event(
+                "content_block_stop",
+                {"type": "content_block_stop", "index": 0},
+            ),
+            event(
+                "message_stop",
+                {"type": "message_stop"},
+            ),
+        ]
+
+        output = parse_output(transform_anthropic_sse(source))
+        completed = output[-1][1]["response"]
+
+        self.assertEqual(
+            completed["output"][0],
+            {
+                "type": "function_call",
+                "id": "fc_tool_mcp",
+                "call_id": "tool_mcp",
+                "name": "web_search_prime",
+                "namespace": "mcp__zhipu_web_search",
+                "arguments": '{"search_query":"智谱 AI"}',
+                "status": "completed",
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

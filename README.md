@@ -21,7 +21,7 @@ Codex CLI
 - Token usage 和上游 HTTP 错误转换。
 - `GET /healthz` 和 `GET /v1/models`。
 
-首版会过滤没有直接等价能力的 `web_search` 和 `image_generation` 工具，不实现 `/v1/responses/compact`。
+代理会过滤没有直接等价能力的 Responses 内置 `web_search` 和 `image_generation` 工具，不实现 `/v1/responses/compact`。GLM 快捷命令会另外注入智谱的联网搜索 MCP，不依赖被过滤的内置 `web_search`。
 
 ## 安装
 
@@ -111,9 +111,13 @@ env_key = "ZHIPU_API_KEY"
 | `ax` | 默认 Codex | `workspace-write` / `on-request` | 否 |
 | `axs` | 默认 Codex | `workspace-write` / `on-request` | 是 |
 | `axf` | 默认 Codex | `danger-full-access` / `never` | 否 |
-| `axg` | GLM | `workspace-write` / `on-request` | 否 |
-| `axgs` | GLM | `workspace-write` / `on-request` | 是 |
-| `axgf` | GLM | `danger-full-access` / `never` | 否 |
+| `axg` | GLM | `workspace-write` / `on-request` | 智谱联网搜索 MCP |
+| `axgs` | GLM | `workspace-write` / `on-request` | 智谱联网搜索 MCP（兼容别名） |
+| `axgf` | GLM | `danger-full-access` / `never` | 智谱联网搜索 MCP |
+
+所有 GLM 快捷命令都会在当前 Codex 进程中临时注册智谱的联网搜索 MCP。由于当前 Codex 对部分 Remote HTTP MCP 的初始化响应存在兼容性问题，命令会用 `mcp-remote@0.1.38` 作为本地 stdio 桥接器访问智谱服务。脚本不会写入 `~/.codex-glm/config.toml`，并且仅通过子进程环境变量把 `glm-api-key.json` 中的 `ZHIPU_API_KEY` 传给桥接器。仅 `web_search_prime` 会暴露给模型并自动批准，其他桥接工具不会获得权限。模型仅在判断任务需要联网时调用该工具；例如可直接要求“搜索最新的某项技术文档”。`axgs` 保留为与 `axg` 相同的兼容别名，不再依赖 Codex 原生 `--search`。
+
+除 WSL 所需的 `jq` 外，GLM 快捷命令还需要可用的 `npx`，以便按需运行这一桥接器。
 
 WSL 需要安装 `jq`，然后在 shell 配置中加载脚本：
 

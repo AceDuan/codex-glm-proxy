@@ -47,6 +47,16 @@ def _usage(input_tokens: int, output_tokens: int, cached_tokens: int) -> JsonObj
     }
 
 
+def _split_mcp_tool_name(name: str) -> tuple[str, str | None]:
+    """将供上游模型使用的扁平 MCP 工具名还原为 Codex 命名空间。"""
+    if not name.startswith("mcp__"):
+        return name, None
+    namespace, separator, tool_name = name.rpartition("__")
+    if not separator or not namespace or not tool_name:
+        return name, None
+    return tool_name, namespace
+
+
 class _ResponsesState:
     def __init__(self) -> None:
         self.sequence = 0
@@ -169,7 +179,7 @@ def transform_anthropic_sse(chunks: Iterable[str | bytes]) -> Iterator[str]:
                 )
             elif block_type == "tool_use":
                 call_id = str(block.get("id") or f"tool_{index}")
-                name = str(block.get("name") or "")
+                name, namespace = _split_mcp_tool_name(str(block.get("name") or ""))
                 item = {
                     "type": "function_call",
                     "id": f"fc_{call_id}",
@@ -178,6 +188,8 @@ def transform_anthropic_sse(chunks: Iterable[str | bytes]) -> Iterator[str]:
                     "arguments": "",
                     "status": "in_progress",
                 }
+                if namespace is not None:
+                    item["namespace"] = namespace
                 state.blocks[index] = {
                     "kind": "tool",
                     "item": item,

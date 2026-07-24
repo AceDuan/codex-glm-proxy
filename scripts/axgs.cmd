@@ -1,3 +1,3 @@
 @echo off
-call "%~dp0codex-glm.cmd" --sandbox workspace-write --ask-for-approval on-request --search %*
+call "%~dp0axg.cmd" %*
 exit /b %errorlevel%

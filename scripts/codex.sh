@@ -47,6 +47,11 @@ codex-glm() {
   ZHIPU_API_KEY="$api_key" \
     codex \
       -c 'model_providers.custom.base_url="http://127.0.0.1:8765/v1"' \
+      -c 'mcp_servers.zhipu_web_search.command="npx"' \
+      -c 'mcp_servers.zhipu_web_search.args=["--yes","mcp-remote@0.1.38","https://open.bigmodel.cn/api/mcp/web_search_prime/mcp","--header","Authorization: Bearer ${ZHIPU_API_KEY}","--transport","http-only","--silent"]' \
+      -c 'mcp_servers.zhipu_web_search.env_vars=["ZHIPU_API_KEY"]' \
+      -c 'mcp_servers.zhipu_web_search.enabled_tools=["web_search_prime"]' \
+      -c 'mcp_servers.zhipu_web_search.default_tools_approval_mode="approve"' \
       "$@"
 }
 
@@ -58,11 +63,7 @@ axg() {
 }
 
 axgs() {
-  codex-glm \
-    --sandbox workspace-write \
-    --ask-for-approval on-request \
-    --search \
-    "$@"
+  axg "$@"
 }
 
 axgf() {
